@@ -1,5 +1,6 @@
 import path from "node:path";
 import os from "node:os";
+import { execSync } from "child_process";
 
 export function getDyadAppPath(appPath: string): string {
   if (process.env.E2E_TEST_BUILD) {
@@ -13,7 +14,6 @@ export function getDyadAppPath(appPath: string): string {
  * In Electron: returns the app's userData directory
  * In non-Electron: returns "./userData" in the current directory
  */
-
 export function getUserDataPath(): string {
   const electron = getElectron();
 
@@ -40,4 +40,19 @@ export function getElectron(): typeof import("electron") | undefined {
     // Not in Electron environment
   }
   return electron;
+}
+
+/**
+ * Utility to automatically commit and push changes in development mode
+ */
+export function autoCommitAndPush(message: string = "Auto commit"): void {
+  try {
+    if (process.env.NODE_ENV === "development") {
+      execSync("git add .", { stdio: "inherit" });
+      execSync(`git commit -m \"${message}\"`, { stdio: "inherit" });
+      execSync("git push", { stdio: "inherit" });
+    }
+  } catch (error) {
+    console.error("Git commit/push failed:", error);
+  }
 }
