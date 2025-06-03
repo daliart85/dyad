@@ -1,135 +1,48 @@
-// See the Electron documentation for details on how to use preload scripts:
-// https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
+// Check if running in Electron
+let safeIpcRenderer = undefined;
 
+try {
+  if (typeof window !== "undefined" && window.require) {
+    const electron = window.require("electron");
+    safeIpcRenderer = electron.ipcRenderer;
+  }
+} catch (e) {
+  console.warn("Not running in Electron, ipcRenderer disabled.");
+}
 
-
-// Whitelist of valid channels
-const validInvokeChannels = [
-  "get-language-models",
-  "get-language-models-by-providers",
-  "create-custom-language-model",
-  "get-language-model-providers",
-  "delete-custom-language-model-provider",
-  "create-custom-language-model-provider",
-  "delete-custom-language-model",
-  "delete-custom-model",
-  "chat:add-dep",
-  "chat:message",
-  "chat:cancel",
-  "chat:stream",
-  "chat:count-tokens",
-  "create-chat",
-  "create-app",
-  "get-chat",
-  "get-chats",
-  "get-chat-logs",
-  "list-apps",
-  "get-app",
-  "edit-app-file",
-  "read-app-file",
-  "run-app",
-  "stop-app",
-  "restart-app",
-  "list-versions",
-  "revert-version",
-  "checkout-version",
-  "get-current-branch",
-  "delete-app",
-  "rename-app",
-  "get-user-settings",
-  "set-user-settings",
-  "get-env-vars",
-  "open-external-url",
-  "show-item-in-folder",
-  "reset-all",
-  "nodejs-status",
-  "install-node",
-  "github:start-flow",
-  "github:is-repo-available",
-  "github:create-repo",
-  "github:push",
-  "github:disconnect",
-  "get-app-version",
-  "reload-env-path",
-  "get-proposal",
-  "approve-proposal",
-  "reject-proposal",
-  "get-system-debug-info",
-  "supabase:list-projects",
-  "supabase:set-app-project",
-  "supabase:unset-app-project",
-  "local-models:list-ollama",
-  "local-models:list-lmstudio",
-  "window:minimize",
-  "window:maximize",
-  "window:close",
-  "get-system-platform",
-  "upload-to-signed-url",
-  "delete-chat",
-  "delete-messages",
-  "start-chat-stream",
-  "does-release-note-exist",
-  "import-app",
-  "check-ai-rules",
-  "select-app-folder",
-  "check-app-name",
-  "rename-branch",
-  "clear-session-data",
-] as const;
-
-// Add valid receive channels
-const validReceiveChannels = [
-  "chat:response:chunk",
-  "chat:response:end",
-  "chat:response:error",
-  "app:output",
-  "github:flow-update",
-  "github:flow-success",
-  "github:flow-error",
-  "deep-link-received",
-] as const;
-
-type ValidInvokeChannel = (typeof validInvokeChannels)[number];
-type ValidReceiveChannel = (typeof validReceiveChannels)[number];
-
-// Expose protected methods that allow the renderer process to use
-// the ipcRenderer without exposing the entire object
-contextBridge.exposeInMainWorld("electron", {
+// Safe fallback object for browser
+const safeContextBridge = {
   ipcRenderer: {
-    invoke: (channel: ValidInvokeChannel, ...args: unknown[]) => {
-      if (validInvokeChannels.includes(channel)) {
-        return ipcRenderer.invoke(channel, ...args);
-      }
-      throw new Error(`Invalid channel: ${channel}`);
+    invoke: (..._args: unknown[]) => {
+      console.warn("invoke called in browser – no effect.");
+      return Promise.resolve(null);
     },
-    on: (
-      channel: ValidReceiveChannel,
-      listener: (...args: unknown[]) => void,
-    ) => {
-      if (validReceiveChannels.includes(channel)) {
-        const subscription = (
-          _event: Electron.IpcRendererEvent,
-          ...args: unknown[]
-        ) => listener(...args);
-        ipcRenderer.on(channel, subscription);
-        return () => {
-          ipcRenderer.removeListener(channel, subscription);
-        };
-      }
-      throw new Error(`Invalid channel: ${channel}`);
+    on: (..._args: unknown[]) => {
+      console.warn("on called in browser – no effect.");
     },
-    removeAllListeners: (channel: ValidReceiveChannel) => {
-      if (validReceiveChannels.includes(channel)) {
-        ipcRenderer.removeAllListeners(channel);
-      }
+    removeAllListeners: (..._args: unknown[]) => {
+      console.warn("removeAllListeners called in browser – no effect.");
     },
-    removeListener: (
-      channel: ValidReceiveChannel,
-      listener: (...args: unknown[]) => void,
-    ) => {
-      if (validReceiveChannels.includes(channel)) {
-        ipcRenderer.removeListener(channel, listener);
-      }
+    removeListener: (..._args: unknown[]) => {
+      console.warn("removeListener called in browser – no effect.");
     },
   },
-});
+};
+
+// Expose dummy interface in browser or real one in Electron
+window.electron = {
+  ipcRenderer: safeIpcRenderer ? {
+    invoke: (channel, ...args) => {
+      return safeIpcRenderer.invoke(channel, ...args);
+    },
+    on: (channel, listener) => {
+      safeIpcRenderer.on(channel, (_event, ...args) => listener(...args));
+    },
+    removeAllListeners: (channel) => {
+      safeIpcRenderer.removeAllListeners(channel);
+    },
+    removeListener: (channel, listener) => {
+      safeIpcRenderer.removeListener(channel, listener);
+    },
+  } : safeContextBridge.ipcRenderer
+};
