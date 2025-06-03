@@ -50,3 +50,4 @@ if (typeof contextBridge !== "undefined") {
   contextBridge.exposeInMainWorld("electron", window.electron || safeContextBridge);
 }
 
+
