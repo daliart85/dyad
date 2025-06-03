@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAtom } from "jotai";
-import { userSettingsAtom, envVarsAtom } from "@/atoms/appAtoms";
-import { IpcClient } from "@/ipc/ipc_client";
-import { type UserSettings } from "@/lib/schemas";
+import { userSettingsAtom, envVarsAtom } from "../atoms/appAtoms";
+import { IpcClient } from "../ipc/ipc_client";
+import { type UserSettings } from "../lib/schemas";
 import { usePostHog } from "posthog-js/react";
 
 const TELEMETRY_CONSENT_KEY = "dyadTelemetryConsent";
